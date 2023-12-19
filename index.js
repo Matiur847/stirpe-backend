@@ -96,7 +96,7 @@ app.post('/create-checkout-session', async (req, res) => {
 
 
 app.get('/', (req, res) => {
-    res.send('wello from rs2-backend')
+    res.send('Wellcome from API')
 })
 
 app.listen(PORT, () => {
