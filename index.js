@@ -129,7 +129,7 @@ app.post('/create-checkout-session', async (req, res) => {
 });
 
 let endpointSecret;
-endpointSecret = process.env.WEBHOOK_SEC || whsec_3ZiPD4kB8OvOuX6gWfDDL6yPHHwtsDSA
+endpointSecret = whsec_3ZiPD4kB8OvOuX6gWfDDL6yPHHwtsDSA
 let eventType;
 
 app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
