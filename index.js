@@ -1,9 +1,9 @@
 const express = require('express')
 const cors = require('cors')
 const Stripe = require("stripe");
+const { db } = require('./firebase');
 const app = express()
-const admin = require('firebase-admin')
-const credentials = require('./key.json')
+
 require('dotenv').config()
 
 app.use((req, res, next) => {
@@ -15,31 +15,41 @@ app.use((req, res, next) => {
 });
 app.use(cors())
 
+// ignore undefined value or 
+// db.settings({ ignoreUndefinedProperties: true })
+
+// db.settings({ ignoreUndefinedProperties: true })
+
 const stripe = Stripe(process.env.STRIPE_KEY)
 
 const PORT = process.env.PORT || 5000
-
-
-// firstore configure
-
-admin.initializeApp({
-    credential: admin.credential.cert(credentials)
-})
-
-const db = admin.firestore()
 
 let data;
 let paymentStatus;
 let customerData;
 
 app.post('/create-checkout-session', async (req, res) => {
+    // let cartItem;
+
+    const cartItem = req.body.cartItem.map((item) => {
+        return { id: item.id, quantity: item.quantity, totalPrice: item.totalPrice }
+    })
+
+    // console.log('cartItem line 33 :', cartItem)
+    const today = new Date();
+    const time = today.toLocaleTimeString()
+    const yyyy = today.getFullYear();
+    let mm = today.getMonth() + 1; // Months start at 0!
+    let dd = today.getDate();
+    // console.log(time, dd, mm, yyyy, createdAt)
 
     const customer = await stripe.customers.create({
         metadata: {
+            date: JSON.stringify({ t: time, m: mm, y: yyyy }),
             userEmail: req.body.email,
             userUid: req.body.userUid,
             userId: req.body.userId,
-            cart: JSON.stringify(req.body.cartItem)
+            cart: JSON.stringify(cartItem),
         },
     });
 
@@ -111,15 +121,15 @@ app.post('/create-checkout-session', async (req, res) => {
         customer: customer.id,
         line_items,
         mode: 'payment',
-        success_url: 'https://stripe-client-1.vercel.app/success',
-        cancel_url: 'https://stripe-client-1.vercel.app/cancel',
+        success_url: 'http://localhost:3000/success',
+        cancel_url: 'http://localhost:3000/cancel',
     });
 
     res.send({ url: session.url, paymentStatus });
 });
 
 let endpointSecret;
-endpointSecret = "whsec_646470e8d1077e62f54cbd9f33b2a15f20e8d6feed19da36792a30e38c4bf605";
+endpointSecret = process.env.WEBHOOK_SEC
 let eventType;
 
 app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
@@ -156,16 +166,29 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
     res.send('Hello');
 });
 
+let inTotalAmount = 0;
+
 const createOrder = async (customer, intent, res) => {
+    if (intent.amount) {
+        inTotalAmount = intent.amount
+    }
+    else {
+        inTotalAmount = intent.amount_total
+    }
     try {
         const orderDate = Date.now();
         const cartItem = {
+            date: JSON.parse(customer.metadata.date),
             cartItem: JSON.parse(customer.metadata.cart),
-            email: customer.metadata.userEmail,
+            email: customer.email,
+            phone: customer.phone,
+            amount: inTotalAmount,
             userId: customer.metadata.userUid,
+            customerId: customer.id,
         }
 
         await db.collection('orders').add(cartItem)
+        // console.log(cartItem)
 
     } catch (err) {
         console.log(err)
