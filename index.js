@@ -30,22 +30,15 @@ let customerData;
 
 app.post('/create-checkout-session', async (req, res) => {
     // let cartItem;
+    const customerId = Math.floor(Math.random() * 1000)
 
     const cartItem = req.body.cartItem.map((item) => {
         return { id: item.id, quantity: item.quantity, totalPrice: item.totalPrice }
     })
 
-    // console.log('cartItem line 33 :', cartItem)
-    const today = new Date();
-    const time = today.toLocaleTimeString()
-    const yyyy = today.getFullYear();
-    let mm = today.getMonth() + 1; // Months start at 0!
-    let dd = today.getDate();
-    // console.log(time, dd, mm, yyyy, createdAt)
-
     const customer = await stripe.customers.create({
         metadata: {
-            date: JSON.stringify({ t: time, m: mm, y: yyyy }),
+            customerId: customerId,
             userEmail: req.body.email,
             userUid: req.body.userUid,
             userId: req.body.userId,
@@ -121,14 +114,15 @@ app.post('/create-checkout-session', async (req, res) => {
         customer: customer.id,
         line_items,
         mode: 'payment',
-        success_url: 'https://stripe-client-1.vercel.app/success',
-        cancel_url: 'https://stripe-client-1.vercel.app/cancel',
+        success_url: 'http://localhost:3000/success',
+        cancel_url: 'http://localhost:3000/cancel',
     });
 
     res.send({ url: session.url, paymentStatus });
 });
 
 let endpointSecret;
+// endpointSecret = process.env.WEBHOOK_SEC
 endpointSecret = "whsec_3ZiPD4kB8OvOuX6gWfDDL6yPHHwtsDSA"
 let eventType;
 
@@ -140,6 +134,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
 
         try {
             event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+            console.log('success')
         } catch (err) {
             console.log(`Webhook Error: ${err.message}`)
             res.status(400).send(`Webhook Error: ${err.message}`);
@@ -166,9 +161,18 @@ app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
     res.send('Hello');
 });
 
+// random id generate
+//  console.log('customerId', customerId)
+
+//  date and time stamp 
+const today = new Date();
+const timeZone = today.toLocaleString()
+
 let inTotalAmount = 0;
 
 const createOrder = async (customer, intent, res) => {
+    console.log('customer', customer)
+    console.log('intent', intent)
     if (intent.amount) {
         inTotalAmount = intent.amount
     }
@@ -178,13 +182,13 @@ const createOrder = async (customer, intent, res) => {
     try {
         const orderDate = Date.now();
         const cartItem = {
-            date: JSON.parse(customer.metadata.date),
+            date: timeZone,
             cartItem: JSON.parse(customer.metadata.cart),
             email: customer.email,
             phone: customer.phone,
             amount: inTotalAmount,
             userId: customer.metadata.userUid,
-            customerId: customer.id,
+            customerId: intent.created,
         }
 
         await db.collection('orders').add(cartItem)
