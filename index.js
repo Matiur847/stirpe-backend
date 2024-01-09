@@ -114,8 +114,8 @@ app.post('/create-checkout-session', async (req, res) => {
         customer: customer.id,
         line_items,
         mode: 'payment',
-        success_url: 'http://localhost:3000/success',
-        cancel_url: 'http://localhost:3000/cancel',
+        success_url: 'https://stripe-client-1.vercel.app/success',
+        cancel_url: 'https://stripe-client-1.vercel.app/cancel',
     });
 
     res.send({ url: session.url, paymentStatus });
